@@ -1,0 +1,36 @@
+name: watchdog
+# Hourly: the site and the database must answer. Keeps one open "incident" issue until a fresh check passes.
+on:
+  schedule: [{ cron: '23 * * * *' }]
+  workflow_dispatch:
+permissions: { issues: write, contents: read }
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check site and database
+        id: check
+        run: |
+          set +e
+          KEY=$(grep -o "key: '[^']*'" config.js | cut -d"'" -f2)
+          URL=$(grep -o "url: '[^']*'" config.js | cut -d"'" -f2)
+          fail=""
+          for p in "" "t/?e=health"; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --retry 3 "https://ghfont1.github.io/matside-site/$p")
+            [ "$code" = "200" ] || fail="$fail site /$p returned $code;"
+          done
+          db=$(curl -s --retry 3 -X POST -H "apikey: $KEY" -H "Content-Type: application/json" "$URL/rest/v1/rpc/ms_health" -d '{}')
+          echo "$db" | grep -q '"ok" *: *true' || fail="$fail database: $db;"
+          echo "fail=$fail" >> "$GITHUB_OUTPUT"
+      - name: Open or close the incident
+        env: { GH_TOKEN: '${{ github.token }}', FAIL: '${{ steps.check.outputs.fail }}' }
+        run: |
+          open=$(gh issue list --label incident --state open --json number --jq '.[0].number')
+          if [ -n "$FAIL" ]; then
+            gh label create incident --color B60205 2>/dev/null || true
+            if [ -z "$open" ]; then gh issue create --title "Matside is down" --label incident --body "$FAIL"; else gh issue comment "$open" --body "Still failing: $FAIL"; fi
+            exit 1
+          elif [ -n "$open" ]; then
+            gh issue close "$open" --comment "Recovered: site and database answered on $(date -u)."
+          fi

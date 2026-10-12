@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Matside: Wrestling Tournament Software</title>
+<meta name="description" content="Run a wrestling tournament from one link: brackets, bout numbers and times, mat-side scoring, live results, team scores and awards. Folkstyle, freestyle and Greco-Roman.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="theme-color" content="#8f1d2f">
+<meta property="og:title" content="Matside: Wrestling Tournament Software">
+<meta property="og:description" content="Brackets, bout numbers, mat-side scoring and live results from one link.">
+<meta property="og:image" content="icon-512.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<script src="vendor/supabase.js"></script>
+<script src="config.js"></script>
+<script src="sbdb.js"></script>
+<style>
+:root{--bg:#eceff3;--surface:#fff;--surface-2:#f6f7f9;--ink:#141922;--muted:#5a6474;--line:#d4d9e1;--accent:#8f1d2f;--accent-ink:#fff;--accent-soft:#f6e4e7;
+  --f-display:"Saira Condensed","Arial Narrow",Impact,sans-serif;--f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:400 16px/1.5 var(--f-body);-webkit-font-smoothing:antialiased}
+a{color:var(--accent)}
+.wrap{max-width:1040px;margin:0 auto;padding:0 16px}
+header.top{background:var(--ink);color:#fff}
+header.top .wrap{display:flex;align-items:center;gap:12px;height:60px}
+.mark{width:30px;height:30px;border-radius:7px;background:var(--accent);display:grid;place-items:center}
+.mark::after{content:"";width:16px;height:16px;border:3px solid #fff;border-radius:50%}
+.brand{font:800 24px/1 var(--f-display);letter-spacing:.02em;text-transform:uppercase}
+.hero{background:linear-gradient(180deg,var(--ink) 0,#232b38 100%);color:#fff;padding:48px 0 56px}
+.hero h1{font:800 clamp(38px,7vw,64px)/.98 var(--f-display);text-transform:uppercase;margin:0 0 14px;letter-spacing:.01em;max-width:14ch}
+.hero p{font-size:18px;color:#c9d0db;max-width:56ch;margin:0 0 26px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:0 20px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:600 16px/1 var(--f-body);cursor:pointer;text-decoration:none}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.dark{background:transparent;color:#fff;border-color:#4a5566}
+.btn:disabled{opacity:.6;cursor:default}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+main{padding:32px 0 48px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:20px}
+.panel h2{font:700 24px/1.1 var(--f-display);text-transform:uppercase;margin:0 0 4px;letter-spacing:.02em}
+.sub{color:var(--muted);font-size:14px}
+.mine{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:8px}
+.mine a{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;text-decoration:none;color:var(--ink);background:var(--surface-2)}
+.mine a:hover{border-color:var(--accent)}
+.mine b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tag{font:600 12px/1 var(--f-body);padding:5px 8px;border-radius:99px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
+.tag.view{background:#e7ebf0;color:var(--muted)}
+.open{display:flex;gap:8px;margin-top:12px}
+.open input{flex:1;min-width:0;min-height:46px;padding:0 12px;border:1px solid var(--line);border-radius:10px;font:500 16px var(--f-body)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+.feat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px}
+.feat h3{font:700 20px/1.1 var(--f-display);text-transform:uppercase;margin:0 0 6px;letter-spacing:.02em}
+.feat p{margin:0;color:var(--muted);font-size:15px}
+.created{border:2px solid var(--accent)}
+.created .linkrow{display:flex;gap:8px;margin:6px 0 12px}
+.created input{flex:1;min-width:0;font:500 13px monospace;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2)}
+.err{color:#c22d2d;margin-top:8px}
+footer{color:var(--muted);font-size:13px;padding:24px 0 40px;border-top:1px solid var(--line)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1319;--surface:#171c24;--surface-2:#1e242e;--ink:#e8ecf2;--muted:#9aa5b5;--line:#2c3440;--accent-soft:#3a1d24;--accent-ink:#fff}
+  :root:not([data-theme="light"]) header.top{background:#0a0d12}:root:not([data-theme="light"]) .hero{background:linear-gradient(180deg,#0a0d12 0,#151a22 100%)}
+  :root:not([data-theme="light"]) .tag{color:#f0b7c1}}
+:root[data-theme="dark"]{--bg:#0f1319;--surface:#171c24;--surface-2:#1e242e;--ink:#e8ecf2;--muted:#9aa5b5;--line:#2c3440;--accent-soft:#3a1d24}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap"><div class="mark" aria-hidden="true"></div><div class="brand">Matside</div></div></header>
+<section class="hero"><div class="wrap">
+  <h1>Run the whole tournament from one link</h1>
+  <p>Seed the brackets, get bout numbers and mat times, score every bout mat-side, and put live results in every parent's pocket. Folkstyle, freestyle and Greco-Roman.</p>
+  <div class="row">
+    <button class="btn primary" id="create">Start a tournament</button>
+    <a class="btn dark" href="t/?demo">Try the demo</a>
+  </div>
+  <div class="err" id="createErr" hidden></div>
+</div></section>
+<main><div class="wrap">
+  <section class="panel created" id="created" hidden></section>
+  <section class="panel">
+    <h2>Your tournaments</h2>
+    <div class="sub" id="mineNote">Tournaments you start or open on this device show up here.</div>
+    <ul class="mine" id="mine"></ul>
+    <form class="open" id="openForm"><input id="openIn" placeholder="Paste a tournament link or code" aria-label="Tournament link or code" autocomplete="off"><button class="btn" type="submit">Open</button></form>
+  </section>
+  <div class="grid">
+    <div class="feat"><h3>Brackets in seconds</h3><p>Enter seeds and wrestlers. Brackets, bout numbers and mat assignments build themselves, with byes and consolations handled.</p></div>
+    <div class="feat"><h3>Mat-side scoring</h3><p>Takedowns, escapes, near falls, stalling, riding time, cautions and tech falls. Rules for high school, college, freestyle and Greco.</p></div>
+    <div class="feat"><h3>Live for everyone</h3><p>Scores, brackets and on-deck calls update on every phone in the gym. Follow a wrestler or a whole team.</p></div>
+    <div class="feat"><h3>Keeps going offline</h3><p>Gym Wi-Fi drops. Scoring keeps working and catches up when the connection comes back.</p></div>
+    <div class="feat"><h3>Times that adjust</h3><p>Estimated bout times re-figure from how fast each mat is really moving.</p></div>
+    <div class="feat"><h3>Results and awards</h3><p>Team scores, deductions, placers, most falls and printable brackets and bout cards.</p></div>
+  </div>
+</div></main>
+<footer><div class="wrap">Matside</div></footer>
+<script>
+(function(){
+  const read=k=>{try{return JSON.parse(localStorage.getItem(k)||'{}')||{}}catch(e){return {}}};
+  const write=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+  const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const base=location.origin+location.pathname.replace(/index\.html$/,'')+'t/';
+  function paintMine(){
+    const mine=read('matside-mine'),keys=read('matside-keys');
+    const ids=Object.keys(mine).sort((a,b)=>(mine[b].at||0)-(mine[a].at||0));
+    document.getElementById('mineNote').hidden=ids.length>0;
+    document.getElementById('mine').innerHTML=ids.map(id=>{const m=mine[id],r=keys[id]?keys[id].r:'view';
+      return `<li><a href="t/?e=${esc(id)}"><span style="min-width:0"><b>${esc(m.name||'Untitled tournament')}</b><span class="sub">${esc(m.date||'')}${m.date?' · ':''}${esc(id)}</span></span><span class="tag ${r==='view'?'view':''}">${r==='admin'?'Director':r==='scorer'?'Scorer':'Following'}</span></a></li>`}).join('');
+  }
+  paintMine();
+  document.getElementById('create').addEventListener('click',async e=>{
+    const b=e.currentTarget,err=document.getElementById('createErr');b.disabled=true;b.textContent='Starting…';err.hidden=true;
+    try{
+      const r=await MatsideDB.rpc('ms_create_event');
+      const keys=read('matside-keys');keys[r.id]={k:r.admin_key,r:'admin',s:r.scorer_key,at:Date.now()};write('matside-keys',keys);
+      const mine=read('matside-mine');mine[r.id]={name:'New tournament',at:Date.now()};write('matside-mine',mine);
+      const dir=base+'?e='+r.id+'#a='+r.admin_key;
+      const c=document.getElementById('created');c.hidden=false;
+      c.innerHTML=`<h2>Your tournament is ready</h2><p class="sub">Save your director link now: email it to yourself or bookmark it. It is the only way to edit this tournament from another device. Scorer and public links are in Setup.</p>
+        <div class="linkrow"><input readonly value="${esc(dir)}" aria-label="Director link"><button class="btn" id="copyDir">Copy</button></div>
+        <a class="btn primary" href="t/?e=${esc(r.id)}">Set it up</a>`;
+      document.getElementById('copyDir').onclick=async ev=>{try{await navigator.clipboard.writeText(dir);ev.target.textContent='Copied'}catch(x){c.querySelector('input').select()}};
+      c.scrollIntoView({behavior:'smooth',block:'start'});paintMine();
+    }catch(x){err.hidden=false;err.textContent=/Too many/.test(x.message)?x.message+'.':'Could not start a tournament. Check the connection and try again.'}
+    b.disabled=false;b.textContent='Start a tournament';
+  });
+  document.getElementById('openForm').addEventListener('submit',e=>{e.preventDefault();const v=document.getElementById('openIn').value.trim();if(!v)return;
+    const m=v.match(/[?&]e=([a-z0-9]+)/i);const id=(m?m[1]:v).toLowerCase().replace(/[^a-z0-9]/g,'');const hash=(v.match(/#([as]=[A-Za-z0-9]+)/)||[])[1];
+    if(id)location.href='t/?e='+id+(hash?'#'+hash:'')});
+  if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
+})();
+</script>
+</body>
+</html>
