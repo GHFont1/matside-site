@@ -1,7 +1,7 @@
 /* Offline shell: pages and scripts come from the network when it answers, and from this cache when the gym
    connection is down, so a tablet can reopen Matside offline. Tournament data is never cached here
    (the app keeps its own offline queue). */
-const CACHE = 'matside-v1';
+const CACHE = 'matside-v2';
 const SHELL = ['./', './index.html', './t/', './t/index.html', './vendor/supabase.js', './vendor/qrcode.js', './config.js', './sbdb.js', './boot.js', './icon.svg', './manifest.webmanifest'];
 
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())) });

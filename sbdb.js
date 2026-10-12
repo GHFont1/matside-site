@@ -15,6 +15,11 @@
     const docSubs = new Map();         // path -> Set(fn)
     const collSubs = new Map();        // name -> Set(fn)
     let since = 0, loaded = false, loading = null, chan = null, pollT = null, pollEvery = 30000;
+    // A copy of the tournament stays on this device so a tablet reopened without internet still has it.
+    const CK = 'matside-cache:' + eventId;
+    try { const c = JSON.parse(localStorage.getItem(CK) || 'null'); if (c && c.rows) { for (const [p, d, t] of c.rows) { docs.set(p, d); stamp.set(p, t) } since = c.since || 0; loaded = true } } catch (e) {}
+    let saveT = null;
+    const saveCache = () => { clearTimeout(saveT); saveT = setTimeout(() => { try { localStorage.setItem(CK, JSON.stringify({ since, rows: [...docs].filter(([, d]) => d != null).map(([p, d]) => [p, d, stamp.get(p) || 0]) })) } catch (e) {} }, 1000) };
 
     const snapDoc = p => { const d = docs.get(p); return { exists: d != null, data: () => clone(d) } };
     const snapColl = (name, lim) => {
@@ -38,7 +43,7 @@
         const cur = docs.get(r.path);
         if (!docs.has(r.path) || JSON.stringify(cur) !== JSON.stringify(r.data)) { docs.set(r.path, r.data); changed.push(r.path) }
       }
-      if (changed.length) emit(changed);
+      if (changed.length) { emit(changed); saveCache() }
     };
     async function fetchRows() {
       // overlap the cursor by 5 s so a write that committed out of order is not missed
